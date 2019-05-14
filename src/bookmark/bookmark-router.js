@@ -1,81 +1,104 @@
 const express = require("express");
+const xss = require("xss");
 const uuid = require("uuid/v4");
-const logger = require("../logger");
+const logger = require("logger");
 const { bookmarks } = require("../store");
+const BookmarksService = require("../bookmarks-service");
 
 const bookmarkRouter = express.Router();
+const jsonParser = express.json();
 const bodyParser = express.json();
 
-bookmarkRouter
-  .route("/bookmark")
-  .get((req, res) => {
-    //implemetation
-    res.json(bookmarks);
-  })
-  .post(bodyParser, (req, res) => {
-    //implementation
-    for (const field of ["title", "url", "rating"]) {
-      if (!req.body[field]) {
-        logger.error(`${field} is required`);
-        return res.status(400).send(`${field} is required`);
-      }
-    }
+const serializeBookmark = bookmark => ({
+  id: bookmark.id,
+  title: xss(bookmark.title),
+  url: bookmark.url,
+  description: xss(bookmark.description),
+  rating: Number(bookmark.rating)
+});
 
-    const { title, url, rating, desc } = req.body;
+bookmarkRouter
+  .route("/bookmarks")
+  .get((req, res, next) => {
+    //implementation
+    const knexInstance = req.app.get("db");
+    BookmarksService.getAllBookmarks(knexInstance)
+      .then(bookmarks => {
+        res.json(bookmarks.map(serializeBookmark));
+      })
+      .catch(next);
+  })
+  .post(bodyParser, (req, res, next) => {
+    //implementation
+    const { title, url, rating, description } = req.body;
 
     if (!title) {
-      logger.error("Title is required");
-      return res.status(400).send("Invalid data");
+      //logger.error("Title is required");
+      return res.status(400).send({
+        error: { message: `Missing 'title' in request body` }
+      });
     }
 
     if (!url) {
-      logger.error("Url is required");
-      return res.status(400).send("Invalid data");
+      //logger.error("Url is required");
+      return res.status(400).send({
+        error: { message: `Missing 'url' in request body` }
+      });
     }
 
-    if (!desc) {
-      logger.error("Desc is required");
-      return res.status(400).send("Invalid data");
+    if (!rating) {
+      //logger.error("Rating is required");
+      return res.status(400).send({
+        error: { message: `Missing 'rating' in request body` }
+      });
     }
 
-    const id = uuid();
+    if (!Number.isInteger(rating) || rating < 0 || rating > 5) {
+      //logger.error(`Invalid rating '${rating}' supplied`)
+      return res.status(400).send({
+        error: { message: `'rating' must be a number between 0 and 5` }
+      });
+    }
 
-    const bookmark = {
-      id,
-      title,
-      url,
-      rating,
-      desc
-    };
+    const newBookmark = { title, description, url, rating };
 
-    bookmarks.push(bookmark);
-
-    logger.info(`Bookmark with bookmark ${id} created`);
-
-    res
-      .status(201)
-      .location(`http://localhost.8000/bookmark/${id}`)
-      .json(bookmark);
+    BookmarksService.insertBookmark(req.app.get("db"), newBookmark)
+      .then(bookmark => {
+        //logger.info(`Bookmark with bookmark ${id} created`);
+        res
+          .status(201)
+          .location(`/bookmarks/${bookmark.id}`)
+          .json(serializeBookmark(bookmark));
+      })
+      .catch(next);
   });
 
 bookmarkRouter
-  .route("/bookmark/:id")
-  .get((req, res) => {
+  .route("/bookmarks/:id")
+  .all((req, res, next) => {
     //implementation
     const { id } = req.params;
-    const bookmark = bookmarks.find(b => b.id == id);
-
-    if (!bookmark) {
-      logger.error(`Bookmark with id ${id} not found`);
-      return res.status(404).send("Bookmark not found");
-    }
-
-    res.json(bookmark);
+    const knexInstance = req.app.get("db");
+    BookmarksService.getById(knexInstance, id)
+      .then(bookmark => {
+        if (!bookmark) {
+          //logger.error(`Bookmark with id ${id} not found`);
+          return res.status(404).json({
+            error: { message: `Bookmark doesn't exist` }
+          });
+        }
+        res.bookmark = bookmark;
+        next();
+      })
+      .catch(next);
   })
-  .delete((req, res) => {
+  .get((req, res) => {
+    res.json(serializeBookmark(res.bookmark));
+  })
+  .delete((req, res, next) => {
     //implementation
     const { id } = req.params;
-
+    /*
     const bookmarkIndex = bookmarks.findIndex(li => li.id == id);
 
     if (bookmarkIndex === -1) {
@@ -85,8 +108,12 @@ bookmarkRouter
 
     bookmarks.splice(bookmarkIndex, 1);
 
-    logger.info(`Bookmark with id ${id} deleted`);
-    res.status(204).end();
+    logger.info(`Bookmark with id ${id} deleted`);*/
+    BookmarksService.deleteBookmark(req.app.get("db"), id)
+      .then(() => {
+        res.status(204).end();
+      })
+      .catch(next);
   });
 
 module.exports = bookmarkRouter;
