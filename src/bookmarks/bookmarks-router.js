@@ -6,7 +6,7 @@ const logger = require("logger");
 const { bookmarks } = require("../store");
 const BookmarksService = require("./bookmarks-service");
 
-const bookmarkRouter = express.Router();
+const bookmarksRouter = express.Router();
 const jsonParser = express.json();
 const bodyParser = express.json();
 
@@ -18,7 +18,7 @@ const serializeBookmark = bookmark => ({
   rating: Number(bookmark.rating)
 });
 
-bookmarkRouter
+bookmarksRouter
   .route("/")
   .get((req, res, next) => {
     //implementation
@@ -74,7 +74,7 @@ bookmarkRouter
       .catch(next);
   });
 
-bookmarkRouter
+bookmarksRouter
   .route("/:id")
   .all((req, res, next) => {
     //implementation
@@ -143,4 +143,4 @@ bookmarkRouter
       .catch(next);
   });
 
-module.exports = bookmarkRouter;
+module.exports = bookmarksRouter;

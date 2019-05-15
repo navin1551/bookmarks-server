@@ -5,7 +5,7 @@ const cors = require("cors");
 const helmet = require("helmet");
 const { NODE_ENV } = require("./config");
 const winston = require("winston");
-const bookmarkRouter = require("./bookmark/bookmark-router");
+const bookmarksRouter = require("./bookmarks/bookmarks-router");
 const logger = require("./logger");
 
 const app = express();
@@ -20,7 +20,6 @@ app.use(helmet());
 
 app.use(function validateBearerToken(req, res, next) {
   const apiToken = process.env.API_TOKEN;
-  console.log(apiToken);
   const authToken = req.get("Authorization");
 
   if (!authToken || authToken.split(" ")[1] !== apiToken) {
@@ -31,7 +30,7 @@ app.use(function validateBearerToken(req, res, next) {
   next();
 });
 
-app.use("/api/bookmarks", bookmarkRouter);
+app.use("/api/bookmarks", bookmarksRouter);
 
 app.get("/", (req, res) => {
   res.send("Hello, world!");
