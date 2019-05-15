@@ -3,7 +3,7 @@ const xss = require("xss");
 const uuid = require("uuid/v4");
 const logger = require("logger");
 const { bookmarks } = require("../store");
-const BookmarksService = require("../bookmarks-service");
+const BookmarksService = require("./bookmarks-service");
 
 const bookmarkRouter = express.Router();
 const jsonParser = express.json();
@@ -111,6 +111,32 @@ bookmarkRouter
     logger.info(`Bookmark with id ${id} deleted`);*/
     BookmarksService.deleteBookmark(req.app.get("db"), id)
       .then(() => {
+        res.status(204).end();
+      })
+      .catch(next);
+  })
+
+  .patch(jsonParser, (req, res, next) => {
+    const { title, url, description, rating } = req.body;
+    const bookmarkToUpdate = { title, url, description, rating };
+
+    const numberOfValues = Object.values(bookmarkToUpdate).filter(Boolean)
+      .length;
+    if (numberOfValues === 0) {
+      //logger.error(`Invalid update without required fields`);
+      return res.status(400).json({
+        error: {
+          message: `Request body must contain either 'title', 'url', 'description' or 'rating'`
+        }
+      });
+    }
+
+    BookmarksService.updateBookmark(
+      req.app.get("db"),
+      req.params.id,
+      bookmarkToUpdate
+    )
+      .then(numRowsAffected => {
         res.status(204).end();
       })
       .catch(next);
