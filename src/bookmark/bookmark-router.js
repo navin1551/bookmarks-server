@@ -1,3 +1,4 @@
+const path = require("path");
 const express = require("express");
 const xss = require("xss");
 const uuid = require("uuid/v4");
@@ -18,7 +19,7 @@ const serializeBookmark = bookmark => ({
 });
 
 bookmarkRouter
-  .route("/bookmarks")
+  .route("/")
   .get((req, res, next) => {
     //implementation
     const knexInstance = req.app.get("db");
@@ -67,14 +68,14 @@ bookmarkRouter
         //logger.info(`Bookmark with bookmark ${id} created`);
         res
           .status(201)
-          .location(`/bookmarks/${bookmark.id}`)
+          .location(path.posix.join(req.originalUrl, `/${bookmark.id}`))
           .json(serializeBookmark(bookmark));
       })
       .catch(next);
   });
 
 bookmarkRouter
-  .route("/bookmarks/:id")
+  .route("/:id")
   .all((req, res, next) => {
     //implementation
     const { id } = req.params;
@@ -110,13 +111,13 @@ bookmarkRouter
 
     logger.info(`Bookmark with id ${id} deleted`);*/
     BookmarksService.deleteBookmark(req.app.get("db"), id)
-      .then(() => {
+      .then(numRowsAffected => {
         res.status(204).end();
       })
       .catch(next);
   })
 
-  .patch(jsonParser, (req, res, next) => {
+  .patch(bodyParser, (req, res, next) => {
     const { title, url, description, rating } = req.body;
     const bookmarkToUpdate = { title, url, description, rating };
 
